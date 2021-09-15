@@ -121,8 +121,8 @@ class FlightControlNode : public rclcpp::Node
     Tree tree;
     rclcpp::TimerBase::SharedPtr timer_;
     bool bt_init_;
-    bool minimum_battery_voltage_;
-    bool current_battery_voltage_;
+    float minimum_battery_voltage_;
+    float current_battery_voltage_;
     
 };
 
