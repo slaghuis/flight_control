@@ -18,6 +18,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(navigation_interfaces REQUIRED)
+find_package(lander_interfaces REQUIRED)
 find_package(drone_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
@@ -30,12 +31,16 @@ add_executable(flight_control_node
   src/utility_action.cpp
   src/drone_move_action.cpp
   src/drone_takeoff_action.cpp
-  src/drone_land_action.cpp)
+  src/drone_land_action.cpp
+  src/tracker_snap_action.cpp
+  src/drone_target_land_action.cpp)
+  
 ament_target_dependencies(flight_control_node
   "rclcpp"
   "rclcpp_action"
   "navigation_interfaces"
   "drone_interfaces"
+  "lander_interfaces"
   "sensor_msgs")
 target_include_directories(flight_control_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
