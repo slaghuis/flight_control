@@ -31,6 +31,9 @@
 #include "flight_control/drone_move_action.h"
 #include "flight_control/drone_takeoff_action.h"
 #include "flight_control/drone_land_action.h"
+#include "flight_control/drone_target_land_action.h"
+#include "flight_control/tracker_snap_action.h"
+
 
 using namespace std::chrono_literals;
 using namespace BT;
@@ -84,8 +87,10 @@ class FlightControlNode : public rclcpp::Node
  
         factory.registerNodeType<DroneTakeoffAction>("TakeoffDrone");
         factory.registerNodeType<DroneLandAction>("LandDrone");
+        factory.registerNodeType<DroneTargetLandAction>("TargetLandDrone");
         factory.registerNodeType<DroneMoveAction>("MoveDrone");
         factory.registerNodeType<SaySomething>("SaySomething");
+        factory.registerNodeType<TrackerSnapAction>("TakePicture");
 
         tree = factory.createTreeFromFile(behaviour_tree_file_);
         
@@ -97,14 +102,18 @@ class FlightControlNode : public rclcpp::Node
           if( auto takeoff_action = dynamic_cast<DroneTakeoffAction*>( node.get() ))
           {
             takeoff_action->init( node_ptr );
-          }
-          if( auto land_action = dynamic_cast<DroneLandAction*>( node.get() ))
+          } else if( auto land_action = dynamic_cast<DroneLandAction*>( node.get() ))
           {
             land_action->init( node_ptr );
-          }
-          if( auto move_action = dynamic_cast<DroneMoveAction*>( node.get() ))
+          } else if( auto target_land_action = dynamic_cast<DroneTargetLandAction*>( node.get() ))
+          {
+            target_land_action->init( node_ptr );
+          } else if( auto move_action = dynamic_cast<DroneMoveAction*>( node.get() ))
           {
             move_action->init( node_ptr );
+          } else if( auto snap_action = dynamic_cast<TrackerSnapAction*>( node.get() ))
+          {
+            snap_action->init( node_ptr );
           }
         }
         
