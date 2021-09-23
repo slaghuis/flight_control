@@ -33,7 +33,9 @@ add_executable(flight_control_node
   src/drone_takeoff_action.cpp
   src/drone_land_action.cpp
   src/tracker_snap_action.cpp
-  src/drone_target_land_action.cpp)
+  src/drone_target_land_action.cpp
+  src/map_load_action.cpp 
+  src/map_save_action.cpp )
   
 ament_target_dependencies(flight_control_node
   "rclcpp"
