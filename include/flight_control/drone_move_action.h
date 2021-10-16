@@ -8,6 +8,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "tf2/LinearMath/Quaternion.h"
     
 #include "behaviortree_cpp_v3/behavior_tree.h"
 #include "behaviortree_cpp_v3/bt_factory.h"
@@ -20,22 +21,26 @@
 namespace DroneNodes
 {
 
-class DroneMoveAction : public BT::CoroActionNode
+class DroneMoveAction : public BT::AsyncActionNode
 {
   public:  
     using NavigateToPose = navigation_interfaces::action::NavigateToPose;
     using GoalHandleNavigateToPose = rclcpp_action::ClientGoalHandle<NavigateToPose>;
     
     DroneMoveAction(const std::string& name, const BT::NodeConfiguration& config)
-      : BT::CoroActionNode(name, config)
+      : BT::AsyncActionNode(name, config)
     { }
 
     void init(rclcpp::Node::SharedPtr node) {
       node_ = node;
             
       this->client_ptr_ = rclcpp_action::create_client<NavigateToPose>(
-       node_,
-      "NavigateToPose");
+           node_,
+          "nav_lite/navigate_to_pose");
+          
+      if (!node_->has_parameter("navigation_bt_file")) {
+        node_->declare_parameter<std::string>("navigation_bt_file", "navigate.xml");
+      }
     }
     
     static BT::PortsList providedPorts()
@@ -45,12 +50,12 @@ class DroneMoveAction : public BT::CoroActionNode
 
     BT::NodeStatus tick() override;
     void halt() override;
-    void cleanup(bool halted);
+    void cleanup();
 
   private:
     std::atomic_bool _halt_requested;
     ActionStatus action_status;
-        
+
     // Pointer to the ROS node
     rclcpp::Node::SharedPtr node_;
     rclcpp::CallbackGroup::SharedPtr callback_group_;
