@@ -49,7 +49,7 @@ class FlightControlNode : public rclcpp::Node
       
       this->declare_parameter<std::string>("mission_bt_file", "mission.xml");
       this->declare_parameter<float>("minimum_battery_voltage", 13.6);
-      
+            
       subscription_ = this->create_subscription<sensor_msgs::msg::BatteryState>(
       "drone/battery", 5, std::bind(&FlightControlNode::battery_callback, this, _1));
       

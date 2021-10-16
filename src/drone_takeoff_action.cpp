@@ -54,49 +54,50 @@ BT::NodeStatus DroneTakeoffAction::tick()
       std::shared_future<GoalHandleTakeoff::SharedPtr>>(
       this->client_ptr_->async_send_goal(goal_msg, send_goal_options));
 
-  while( (action_status == ActionStatus::VIRGIN) || (action_status == ActionStatus::PROCESSING) )
+  _halt_requested.store(false);
+  while (!_halt_requested && ((action_status == ActionStatus::VIRGIN) || (action_status == ActionStatus::PROCESSING)))
   {   
-    setStatusRunningAndYield();
+    std::this_thread::sleep_for( std::chrono::milliseconds(10) );
   }  
   
-  cleanup(false);
-  
+  cleanup();
   return (action_status == ActionStatus::SUCCEEDED) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 }
     
-void DroneTakeoffAction::cleanup(bool halted) 
+void DroneTakeoffAction::cleanup() 
 {
-  if( halted )
+
+  if( _halt_requested )
   {
     RCLCPP_DEBUG(node_->get_logger(), "[%s] - Cleaning up after a halt()", name().c_str());
-    goal_handle_ = future_goal_handle_->get();
-    this->client_ptr_->async_cancel_goal(goal_handle_); // Request a cancellation.
+    try {
+      goal_handle_ = future_goal_handle_->get();
+      this->client_ptr_->async_cancel_goal(goal_handle_); // Request a cancellation.
+    } catch (...) {
+      RCLCPP_WARN(node_->get_logger(), "[%s] - Exception caught");
+    }
   } else {
     RCLCPP_DEBUG(node_->get_logger(), "[%s] - Cleaning up after SUCCESS", name().c_str());
     // The Action Server Request completed as per normal.  Nothng to do.
   }
-}
+} 
   
 void DroneTakeoffAction::halt() 
-{
-  std::cout << name() << ": halted." << std::endl;
-  cleanup(true);
+{  
+  _halt_requested.store(true); 
   action_status = ActionStatus::CANCELED;
-  
-  CoroActionNode::halt();
 }
   
 ////  ROS2 Action Client Functions ////////////////////////////////////////////
 void DroneTakeoffAction::goal_response_callback(std::shared_future<GoalHandleTakeoff::SharedPtr> future)
   {
-    //future_goal_handle_ = future;
   
     auto goal_handle = future.get();
     if (!goal_handle) {
       RCLCPP_ERROR(node_->get_logger(), "Goal was rejected by server");
       action_status = ActionStatus::REJECTED;
     } else {
-      RCLCPP_INFO(node_->get_logger(), "Goal accepted by server, waiting for result");
+      RCLCPP_INFO(node_->get_logger(), "Takeoff goal accepted by server, waiting for result");
       action_status = ActionStatus::PROCESSING;
     }
   }
@@ -106,7 +107,7 @@ void DroneTakeoffAction::goal_response_callback(std::shared_future<GoalHandleTak
     const std::shared_ptr<const Takeoff::Feedback> feedback)
   {
 
-    RCLCPP_INFO(node_->get_logger(), "Current Altitude: %.2fm", feedback->current_altitude);
+    RCLCPP_DEBUG(node_->get_logger(), "Current Altitude: %.2fm", feedback->current_altitude);
   }
 
   void DroneTakeoffAction::result_callback(const GoalHandleTakeoff::WrappedResult & result)
@@ -129,8 +130,8 @@ void DroneTakeoffAction::goal_response_callback(std::shared_future<GoalHandleTak
         return;
     }
     
-    RCLCPP_INFO(node_->get_logger(), "Navigation complete");
-    // rclcpp::shutdown();
+    RCLCPP_INFO(node_->get_logger(), "Takeoff complete");
+
   }  
   
 }  // namespace

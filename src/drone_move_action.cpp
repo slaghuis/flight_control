@@ -35,16 +35,22 @@ BT::NodeStatus DroneMoveAction::tick()
     throw BT::RuntimeError("Action server not available. Cannot move the drone.  Failing.");
   }
   
-  RCLCPP_INFO(node_->get_logger(), "Setting up the goal");
+  RCLCPP_INFO(node_->get_logger(), "Navigating to [%.1f, %.1f, %.1f].", goal.x, goal.y, goal.z);
   
   // Call the action server
   auto goal_msg = NavigateToPose::Goal();  //navigation_interfaces::action::NavigateToPose::Goal
   goal_msg.pose.pose.position.x = goal.x; 
   goal_msg.pose.pose.position.y = goal.y;
   goal_msg.pose.pose.position.z = goal.z;
-  //goal_msg.pose.pose.?          = goal.theta;  // yaw
-  goal_msg.behavior_tree = "navigate.xml";  // This should become an input
-
+  
+  tf2::Quaternion q;
+  q.setRPY(0, 0, goal.theta);
+  goal_msg.pose.pose.orientation.x = q.x();
+  goal_msg.pose.pose.orientation.y = q.y();
+  goal_msg.pose.pose.orientation.z = q.z();
+  goal_msg.pose.pose.orientation.w = q.w();
+  
+  node_->get_parameter("navigation_bt_file", goal_msg.behavior_tree);
     
   auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
   send_goal_options.goal_response_callback =
@@ -58,49 +64,50 @@ BT::NodeStatus DroneMoveAction::tick()
       std::shared_future<GoalHandleNavigateToPose::SharedPtr>>(
       this->client_ptr_->async_send_goal(goal_msg, send_goal_options));
 
-  while( (action_status == ActionStatus::VIRGIN) || (action_status == ActionStatus::PROCESSING) )
+  _halt_requested.store(false);
+  while (!_halt_requested && ((action_status == ActionStatus::VIRGIN) || (action_status == ActionStatus::PROCESSING)))
   {   
-    setStatusRunningAndYield();
+    std::this_thread::sleep_for( std::chrono::milliseconds(10) );
   }  
   
-  cleanup(false);
-  
+  cleanup();
   return (action_status == ActionStatus::SUCCEEDED) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 }
     
-void DroneMoveAction::cleanup(bool halted) 
+void DroneMoveAction::cleanup() 
 {
-  if( halted )
+
+  if( _halt_requested )
   {
     RCLCPP_DEBUG(node_->get_logger(), "[%s] - Cleaning up after a halt()", name().c_str());
-    goal_handle_ = future_goal_handle_->get();
-    this->client_ptr_->async_cancel_goal(goal_handle_); // Request a cancellation.
+    try {
+      goal_handle_ = future_goal_handle_->get();
+      this->client_ptr_->async_cancel_goal(goal_handle_); // Request a cancellation.
+    } catch (...) {
+      RCLCPP_WARN(node_->get_logger(), "[%s] - Exception caught");
+    }
   } else {
     RCLCPP_DEBUG(node_->get_logger(), "[%s] - Cleaning up after SUCCESS", name().c_str());
     // The Action Server Request completed as per normal.  Nothng to do.
   }
-}
+} 
   
 void DroneMoveAction::halt() 
-{
-  std::cout << name() << ": halted." << std::endl;
-  cleanup(true);
+{  
+  _halt_requested.store(true); 
   action_status = ActionStatus::CANCELED;
-  
-  CoroActionNode::halt();
 }
+
   
 ////  ROS2 Action Client Functions ////////////////////////////////////////////
 void DroneMoveAction::goal_response_callback(std::shared_future<GoalHandleNavigateToPose::SharedPtr> future)
   {
-    //future_goal_handle_ = future;
-  
     auto goal_handle = future.get();
     if (!goal_handle) {
       RCLCPP_ERROR(node_->get_logger(), "Goal was rejected by server");
       action_status = ActionStatus::REJECTED;
     } else {
-      RCLCPP_INFO(node_->get_logger(), "Goal accepted by server, waiting for result");
+      RCLCPP_DEBUG(node_->get_logger(), "Drone Move Action Goal accepted by server, waiting for result");
       action_status = ActionStatus::PROCESSING;
     }
   }
@@ -110,7 +117,7 @@ void DroneMoveAction::goal_response_callback(std::shared_future<GoalHandleNaviga
     const std::shared_ptr<const NavigateToPose::Feedback> feedback)
   {
 
-    RCLCPP_INFO(node_->get_logger(), "Distance remaining %.2f", feedback->distance_remaining);
+    RCLCPP_DEBUG(node_->get_logger(), "Distance remaining %.2f", feedback->distance_remaining);
   }
 
   void DroneMoveAction::result_callback(const GoalHandleNavigateToPose::WrappedResult & result)
@@ -134,7 +141,6 @@ void DroneMoveAction::goal_response_callback(std::shared_future<GoalHandleNaviga
     }
     
     RCLCPP_INFO(node_->get_logger(), "Navigation complete");
-    // rclcpp::shutdown();
   }  
   
 }  // namespace
