@@ -21,14 +21,14 @@
 namespace DroneNodes
 {
 
-class DroneLandAction : public BT::CoroActionNode
+class DroneLandAction : public BT::AsyncActionNode
 {
   public:
     using Land = drone_interfaces::action::Land;
     using GoalHandleLand = rclcpp_action::ClientGoalHandle<Land>;
 
     DroneLandAction(const std::string& name, const BT::NodeConfiguration& config)
-      : BT::CoroActionNode(name, config)
+      : BT::AsyncActionNode(name, config)
     { }
 
     void init(rclcpp::Node::SharedPtr node) {
@@ -36,7 +36,7 @@ class DroneLandAction : public BT::CoroActionNode
       
        this->client_ptr_ = rclcpp_action::create_client<Land>(
        node_,
-      "Land");
+      "drone/land");
     }
     
     static BT::PortsList providedPorts()
@@ -46,7 +46,7 @@ class DroneLandAction : public BT::CoroActionNode
     
     BT::NodeStatus tick() override;
     void halt() override;
-    void cleanup(bool halted);
+    void cleanup();
 
   private:
     std::atomic_bool _halt_requested;
