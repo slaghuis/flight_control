@@ -25,6 +25,8 @@ find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(BehaviorTreeV3)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 add_executable(flight_control_node 
   src/flight_control_node.cpp
@@ -43,7 +45,9 @@ ament_target_dependencies(flight_control_node
   "navigation_interfaces"
   "drone_interfaces"
   "lander_interfaces"
-  "sensor_msgs")
+  "sensor_msgs"
+  "tf2" 
+  "tf2_ros" )
 target_include_directories(flight_control_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
