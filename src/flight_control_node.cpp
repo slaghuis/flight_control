@@ -91,7 +91,7 @@ class FlightControlNode : public rclcpp::Node
         factory.registerNodeType<DroneTargetLandAction>("TargetLandDrone");
         factory.registerNodeType<DroneMoveAction>("MoveDrone");
         factory.registerNodeType<SaySomething>("SaySomething");
-        factory.registerNodeType<TrackerSnapAction>("TakePicture");
+        // factory.registerNodeType<TrackerSnapAction>("TakePicture");
         factory.registerNodeType<MapLoadAction>("LoadMap");
         factory.registerNodeType<MapSaveAction>("SaveMap");
 
@@ -114,9 +114,9 @@ class FlightControlNode : public rclcpp::Node
           } else if( auto move_action = dynamic_cast<DroneMoveAction*>( node.get() ))
           {
             move_action->init( node_ptr );
-          } else if( auto snap_action = dynamic_cast<TrackerSnapAction*>( node.get() ))
-          {
-            snap_action->init( node_ptr );
+//          } else if( auto snap_action = dynamic_cast<TrackerSnapAction*>( node.get() ))
+//          {
+//            snap_action->init( node_ptr );
           } else if( auto load_action = dynamic_cast<MapLoadAction*>( node.get() ))
           {
             load_action->init( node_ptr );

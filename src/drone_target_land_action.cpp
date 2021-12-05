@@ -24,15 +24,34 @@ BT::NodeStatus DroneTargetLandAction::tick()
   using namespace std::placeholders;
   
   action_status = ActionStatus::VIRGIN;
+  Pose3D goal;
+  if ( !getInput<Pose3D>("goal", goal))
+  {
+        throw BT::RuntimeError("missing required input [goal]");
+  }
 
   if (!this->client_ptr_->wait_for_action_server()) {
     RCLCPP_ERROR(node_->get_logger(), "Lander Action server not available after waiting");
     throw BT::RuntimeError("Action server not available. Cannot land the drone.  Failing.");
   }
-   
+  
+  RCLCPP_INFO(node_->get_logger(), "Attempting to land on a Aruco market at [%.1f, %.1f, %.1f].", goal.x, goal.y, goal.z);
+  
   // Call the action server
-  auto goal_msg = TargetLand::Goal();  //lander_interfaces::action::TargetLand::Goal
-     
+  auto goal_msg = TargetLand::Goal();  //navigation_interfaces::action::Land::Goal
+  goal_msg.pose.pose.position.x = goal.x; 
+  goal_msg.pose.pose.position.y = goal.y;
+  goal_msg.pose.pose.position.z = goal.z;
+
+  tf2::Quaternion q;
+  q.setRPY(0, 0, goal.theta);
+  goal_msg.pose.pose.orientation.x = q.x();
+  goal_msg.pose.pose.orientation.y = q.y();
+  goal_msg.pose.pose.orientation.z = q.z();
+  goal_msg.pose.pose.orientation.w = q.w();
+  
+  goal_msg.target = 0;   // Land on any target  TODO Read this from the XML, optional 
+        
   auto send_goal_options = rclcpp_action::Client<TargetLand>::SendGoalOptions();
   send_goal_options.goal_response_callback =
       std::bind(&DroneTargetLandAction::goal_response_callback, this, _1);
