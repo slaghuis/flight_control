@@ -52,15 +52,25 @@ BT::NodeStatus MapSaveAction::tick()
     return BT::NodeStatus::FAILURE;
   }
   
-  auto result = client_ptr_->async_send_request(request);
- 
+  auto future = client_ptr_->async_send_request(request);
+
+  std::future_status status;
+  do {
+    status = future.wait_for(250ms);  // Not spinning here!  We are in a thread, and the spinning is taken cared of elsewhere.
+    if (status == std::future_status::deferred) {
+      RCLCPP_DEBUG(rclcpp::get_logger("rclcpp"), "Future deferred");
+    } else if (status == std::future_status::timeout) {
+      RCLCPP_DEBUG(rclcpp::get_logger("rclcpp"), "Future timeout");
+    } else if (status == std::future_status::ready) {
+      RCLCPP_DEBUG(rclcpp::get_logger("rclcpp"), "Future ready!");
+    }
+  } while ((status != std::future_status::ready) && (!_halt_requested)); 
+   
   bool service_result = false;
-  // Wait for the result.
-  if (rclcpp::spin_until_future_complete(node_, result) == rclcpp::FutureReturnCode::SUCCESS)
+  if (status == std::future_status::ready)
   {
-    service_result = result.get()->success;
-  } else {
-    RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to call service [nav_lite/save_map]");
+    auto result = future.get();
+    service_result = result->success; 
   }
 
   return (service_result) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;

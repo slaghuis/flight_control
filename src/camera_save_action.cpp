@@ -12,35 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/* *********************************************************************
- * Calls the simple service nav_lite/load_map to read a map into the 
- * octree.
- * *********************************************************************/
-
-#include "flight_control/map_load_action.h"
+#include "flight_control/camera_save_action.h"
 
 namespace DroneNodes
 {
- 
-BT::NodeStatus MapLoadAction::tick()
+     
+
+BT::NodeStatus CameraSaveAction::tick()
 {
   using namespace std::placeholders;
   using namespace std::chrono_literals;
-  
   BT::Optional<std::string> msg = getInput<std::string>("filename");
   // Check if optional is valid. If not, throw its error
   if (!msg)
   {
-      throw BT::RuntimeError("missing required input [message]: ", 
-                              msg.error() );
+      throw BT::RuntimeError("missing required input [filename]: ", msg.error() );
   }
-
-  auto request = std::make_shared<navigation_interfaces::srv::LoadMap::Request>();
-  request->filename = msg.value();
+  
+  auto request = std::make_shared<camera_lite_interfaces::srv::Save::Request>();
+  request->name = msg.value();
 
   _halt_requested.store(false);
-  
-  while ((!_halt_requested) && (!client_ptr_->wait_for_service(1s))) {
+   
+  while ((!_halt_requested) && (!client_ptr_->wait_for_service(250ms))) {
     if (!rclcpp::ok()) {
       RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
       return BT::NodeStatus::FAILURE;
@@ -70,13 +64,13 @@ BT::NodeStatus MapLoadAction::tick()
   if (status == std::future_status::ready)
   {
     auto result = future.get();
-    service_result = result->success; 
+    service_result = result->result; 
   }
-
+  
   return (service_result) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 }
       
-void MapLoadAction::halt() 
+void CameraSaveAction::halt() 
 {  
   _halt_requested.store(true); 
 }

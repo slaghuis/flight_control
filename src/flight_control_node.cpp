@@ -32,7 +32,7 @@
 #include "flight_control/drone_takeoff_action.h"
 #include "flight_control/drone_land_action.h"
 #include "flight_control/drone_target_land_action.h"
-#include "flight_control/tracker_snap_action.h"
+#include "flight_control/camera_save_action.h"
 #include "flight_control/map_load_action.h"
 #include "flight_control/map_save_action.h"
 
@@ -91,7 +91,8 @@ class FlightControlNode : public rclcpp::Node
         factory.registerNodeType<DroneTargetLandAction>("TargetLandDrone");
         factory.registerNodeType<DroneMoveAction>("MoveDrone");
         factory.registerNodeType<SaySomething>("SaySomething");
-        // factory.registerNodeType<TrackerSnapAction>("TakePicture");
+        factory.registerNodeType<GenerateFilename>("GenerateFilename");
+        factory.registerNodeType<CameraSaveAction>("SavePicture");
         factory.registerNodeType<MapLoadAction>("LoadMap");
         factory.registerNodeType<MapSaveAction>("SaveMap");
 
@@ -114,9 +115,9 @@ class FlightControlNode : public rclcpp::Node
           } else if( auto move_action = dynamic_cast<DroneMoveAction*>( node.get() ))
           {
             move_action->init( node_ptr );
-//          } else if( auto snap_action = dynamic_cast<TrackerSnapAction*>( node.get() ))
-//          {
-//            snap_action->init( node_ptr );
+          } else if( auto save_picture_action = dynamic_cast<CameraSaveAction*>( node.get() ))
+          {
+            save_picture_action->init( node_ptr );
           } else if( auto load_action = dynamic_cast<MapLoadAction*>( node.get() ))
           {
             load_action->init( node_ptr );
