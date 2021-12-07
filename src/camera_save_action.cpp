@@ -17,20 +17,34 @@
 namespace DroneNodes
 {
      
-
 BT::NodeStatus CameraSaveAction::tick()
 {
   using namespace std::placeholders;
   using namespace std::chrono_literals;
-  BT::Optional<std::string> msg = getInput<std::string>("filename");
+  
+  BT::Optional<std::string> input_path = getInput<std::string>("path");
+  BT::Optional<std::string> input_name = getInput<std::string>("filename");
+  
   // Check if optional is valid. If not, throw its error
-  if (!msg)
+  if (!input_name)
   {
-      throw BT::RuntimeError("missing required input [filename]: ", msg.error() );
+    throw BT::RuntimeError("missing required input [filename]: ", input_name.error() );
   }
   
+  // path parameter is optional, but required.  Lets create some assurance.
+  std::string save_path = "";
+  if (!input_path)
+  {
+    save_path += "./";
+  } else {
+    save_path = input_path.value();
+    if ( !(save_path.back() == '/') ) {
+      save_path += '/';
+    }
+  }  
+  
   auto request = std::make_shared<camera_lite_interfaces::srv::Save::Request>();
-  request->name = msg.value();
+  request->name = save_path + input_name.value();
 
   _halt_requested.store(false);
    
