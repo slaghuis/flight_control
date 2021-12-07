@@ -35,7 +35,8 @@ class CameraSaveAction : public BT::AsyncActionNode
     
     static BT::PortsList providedPorts()
     {
-        return{ BT::InputPort<std::string>("filename") };
+        return{ BT::InputPort<std::string>("path"), 
+                BT::InputPort<std::string>("filename") };
     }
     
     BT::NodeStatus tick() override;
