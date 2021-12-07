@@ -20,6 +20,7 @@ find_package(ament_cmake REQUIRED)
 find_package(navigation_interfaces REQUIRED)
 find_package(lander_interfaces REQUIRED)
 find_package(drone_interfaces REQUIRED)
+find_package(camera_lite_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
@@ -35,6 +36,7 @@ add_executable(flight_control_node
   src/drone_takeoff_action.cpp
   src/drone_land_action.cpp
   src/drone_target_land_action.cpp
+  src/camera_save_action.cpp
   src/map_load_action.cpp 
   src/map_save_action.cpp )
   
@@ -44,6 +46,7 @@ ament_target_dependencies(flight_control_node
   "navigation_interfaces"
   "drone_interfaces"
   "lander_interfaces"
+  "camera_lite_interfaces"
   "sensor_msgs"
   "tf2" 
   "tf2_ros" )
