@@ -65,6 +65,7 @@ class FlightControlNode : public rclcpp::Node
       behaviour_tree_file_ = this->declare_parameter<std::string>("mission_bt_file", "mission.xml");
       minimum_battery_voltage_ = this->declare_parameter<float>("minimum_battery_voltage", 13.6);
       clear_to_fly_ = ! this->declare_parameter<bool>("use_ground_control", false);
+      drone_code_ = this->declare_parameter<bool>("drone_code", 42);
 
       // Setup the behavior tree
       using namespace DroneNodes;
@@ -117,7 +118,7 @@ class FlightControlNode : public rclcpp::Node
     void start_mission(const std::shared_ptr<Mission::Request> request,
                           std::shared_ptr<Mission::Response> response)
     {
-      if (request->drone_code == 42) {  // Parameterise!
+      if (request->drone_code == drone_code_) {
         behaviour_tree_file_ = request->mission_file;
         clear_to_fly_ = true;
         response->accepted = true;
@@ -158,6 +159,7 @@ class FlightControlNode : public rclcpp::Node
     rclcpp::TimerBase::SharedPtr one_off_timer_;
     float minimum_battery_voltage_;
     float current_battery_voltage_;
+    int drone_code_;
     
     std::string behaviour_tree_file_;
     bool clear_to_fly_;
