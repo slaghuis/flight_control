@@ -36,6 +36,9 @@
 #include "flight_control/map_load_action.h"
 #include "flight_control/map_save_action.h"
 
+#include "navigation_interfaces/srv/mission.hpp"
+
+using Mission = navigation_interfaces::srv::Mission;
 using namespace std::chrono_literals;
 using namespace BT;
 
@@ -43,22 +46,86 @@ class FlightControlNode : public rclcpp::Node
 {
   public:
     FlightControlNode()
-    : Node("flight_control_node"), bt_init_(false), current_battery_voltage_(14.8)
+    : Node("flight_control_node"), current_battery_voltage_(14.8), clear_to_fly_(false)
     {
-      using std::placeholders::_1;
       
-      this->declare_parameter<std::string>("mission_bt_file", "mission.xml");
-      this->declare_parameter<float>("minimum_battery_voltage", 13.6);
-            
-      subscription_ = this->create_subscription<sensor_msgs::msg::BatteryState>(
-      "drone/battery", 5, std::bind(&FlightControlNode::battery_callback, this, _1));
-      
-      timer_ = this->create_wall_timer(
-      1000ms, std::bind(&FlightControlNode::timer_callback, this));
+      one_off_timer_ = this->create_wall_timer(
+        1000ms, std::bind(&FlightControlNode::init, this));
+        
     }
 
   private:
-    std::string behaviour_tree_file_;
+  
+    void init ()
+    {
+      // Only run this once
+      this->one_off_timer_->cancel();
+      
+      // Declare and get parameters
+      behaviour_tree_file_ = this->declare_parameter<std::string>("mission_bt_file", "mission.xml");
+      minimum_battery_voltage_ = this->declare_parameter<float>("minimum_battery_voltage", 13.6);
+      clear_to_fly_ = ! this->declare_parameter<bool>("use_ground_control", false);
+
+      // Setup the behavior tree
+      using namespace DroneNodes;
+      factory.registerSimpleCondition("BatteryOK", std::bind(&FlightControlNode::CheckBattery, this));
+ 
+      factory.registerNodeType<DroneTakeoffAction>("TakeoffDrone");
+      factory.registerNodeType<DroneLandAction>("LandDrone");
+      factory.registerNodeType<DroneTargetLandAction>("TargetLandDrone");
+      factory.registerNodeType<DroneMoveAction>("MoveDrone");
+      factory.registerNodeType<SaySomething>("SaySomething");
+      factory.registerNodeType<GenerateFilename>("GenerateFilename");
+      factory.registerNodeType<CameraSaveAction>("SavePicture");
+      factory.registerNodeType<MapLoadAction>("LoadMap");
+      factory.registerNodeType<MapSaveAction>("SaveMap");
+
+      tree = factory.createTreeFromFile(behaviour_tree_file_);
+        
+      auto node_ptr = shared_from_this();                
+      // Iterate through all the nodes and call init() if it is an Action_B
+      for( auto& node: tree.nodes )
+      {
+        // Not a typo: it is "=", not "=="
+        if( auto takeoff_action = dynamic_cast<DroneTakeoffAction*>( node.get() )) {
+          takeoff_action->init( node_ptr );
+        } else if( auto land_action = dynamic_cast<DroneLandAction*>( node.get() )) {
+          land_action->init( node_ptr );
+        } else if( auto target_land_action = dynamic_cast<DroneTargetLandAction*>( node.get() )) {
+          target_land_action->init( node_ptr );
+        } else if( auto move_action = dynamic_cast<DroneMoveAction*>( node.get() )) {
+          move_action->init( node_ptr );
+        } else if( auto save_picture_action = dynamic_cast<CameraSaveAction*>( node.get() )) {
+          save_picture_action->init( node_ptr );
+        } else if( auto load_action = dynamic_cast<MapLoadAction*>( node.get() )) {
+          load_action->init( node_ptr );
+        } else if( auto save_action = dynamic_cast<MapSaveAction*>( node.get() )) {
+          save_action->init( node_ptr );
+        }
+      }
+
+      subscription_ = this->create_subscription<sensor_msgs::msg::BatteryState>(
+      "drone/battery", 5, std::bind(&FlightControlNode::battery_callback, this, std::placeholders::_1));
+      
+      mission_service_ = this->create_service<Mission>("drone/mission", 
+        std::bind(&FlightControlNode::start_mission, this, std::placeholders::_1, std::placeholders::_2));
+      
+      timer_ = this->create_wall_timer(
+        1000ms, std::bind(&FlightControlNode::timer_callback, this));
+    }
+
+    void start_mission(const std::shared_ptr<Mission::Request> request,
+                          std::shared_ptr<Mission::Response> response)
+    {
+      if (request->drone_code == 42) {  // Parameterise!
+        behaviour_tree_file_ = request->mission_file;
+        clear_to_fly_ = true;
+        response->accepted = true;
+      } else {
+        clear_to_fly_ = false;
+        response->accepted = false;
+      }
+    }                      
     
     BT::NodeStatus CheckBattery()
     {      
@@ -74,60 +141,9 @@ class FlightControlNode : public rclcpp::Node
     void timer_callback()
     {      
       using namespace DroneNodes;
-            
-      if(!bt_init_) {
-        // This code only run once
       
-        // Read parameters
-        this->get_parameter("mission_bt_file", behaviour_tree_file_);
-        this->get_parameter("minimum_battery_voltage", minimum_battery_voltage_);
-      
-        RCLCPP_INFO(this->get_logger(), "Flight Control node started.  Executing %s", behaviour_tree_file_.c_str());
-
-        factory.registerSimpleCondition("BatteryOK", std::bind(&FlightControlNode::CheckBattery, this));
- 
-        factory.registerNodeType<DroneTakeoffAction>("TakeoffDrone");
-        factory.registerNodeType<DroneLandAction>("LandDrone");
-        factory.registerNodeType<DroneTargetLandAction>("TargetLandDrone");
-        factory.registerNodeType<DroneMoveAction>("MoveDrone");
-        factory.registerNodeType<SaySomething>("SaySomething");
-        factory.registerNodeType<GenerateFilename>("GenerateFilename");
-        factory.registerNodeType<CameraSaveAction>("SavePicture");
-        factory.registerNodeType<MapLoadAction>("LoadMap");
-        factory.registerNodeType<MapSaveAction>("SaveMap");
-
-        tree = factory.createTreeFromFile(behaviour_tree_file_);
-        
-        auto node_ptr = shared_from_this();                
-        // Iterate through all the nodes and call init() if it is an Action_B
-        for( auto& node: tree.nodes )
-        {
-          // Not a typo: it is "=", not "=="
-          if( auto takeoff_action = dynamic_cast<DroneTakeoffAction*>( node.get() ))
-          {
-            takeoff_action->init( node_ptr );
-          } else if( auto land_action = dynamic_cast<DroneLandAction*>( node.get() ))
-          {
-            land_action->init( node_ptr );
-          } else if( auto target_land_action = dynamic_cast<DroneTargetLandAction*>( node.get() ))
-          {
-            target_land_action->init( node_ptr );
-          } else if( auto move_action = dynamic_cast<DroneMoveAction*>( node.get() ))
-          {
-            move_action->init( node_ptr );
-          } else if( auto save_picture_action = dynamic_cast<CameraSaveAction*>( node.get() ))
-          {
-            save_picture_action->init( node_ptr );
-          } else if( auto load_action = dynamic_cast<MapLoadAction*>( node.get() ))
-          {
-            load_action->init( node_ptr );
-          } else if( auto save_action = dynamic_cast<MapSaveAction*>( node.get() ))
-          {
-            save_action->init( node_ptr );
-          }
-        }
-        
-        bt_init_ = true;
+      if( !clear_to_fly_ ) {
+        return;
       }
       
       if( tree.tickRoot() != NodeStatus::RUNNING) {
@@ -139,10 +155,13 @@ class FlightControlNode : public rclcpp::Node
     BehaviorTreeFactory factory;
     Tree tree;
     rclcpp::TimerBase::SharedPtr timer_;
-    bool bt_init_;
+    rclcpp::TimerBase::SharedPtr one_off_timer_;
     float minimum_battery_voltage_;
     float current_battery_voltage_;
     
+    std::string behaviour_tree_file_;
+    bool clear_to_fly_;
+    rclcpp::Service<Mission>::SharedPtr mission_service_;    
 };
 
 int main(int argc, char * argv[])
