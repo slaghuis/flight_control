@@ -21,6 +21,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <fstream>   // infile
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
@@ -66,6 +67,11 @@ class FlightControlNode : public rclcpp::Node
       minimum_battery_voltage_ = this->declare_parameter<float>("minimum_battery_voltage", 13.6);
       clear_to_fly_ = ! this->declare_parameter<bool>("use_ground_control", false);
       drone_code_ = this->declare_parameter<int>("drone_code", 42);
+      
+      // Handle case where no ground control is to be used
+      if (clear_to_fly_) {
+        read_mission_file();
+      }
 
       // Setup the behavior tree
       using namespace DroneNodes;
@@ -81,10 +87,53 @@ class FlightControlNode : public rclcpp::Node
       factory.registerNodeType<MapLoadAction>("LoadMap");
       factory.registerNodeType<MapSaveAction>("SaveMap");
 
-      tree = factory.createTreeFromFile(behaviour_tree_file_);
+      subscription_ = this->create_subscription<sensor_msgs::msg::BatteryState>(
+      "drone/battery", 5, std::bind(&FlightControlNode::battery_callback, this, std::placeholders::_1));
+      
+      mission_service_ = this->create_service<Mission>("drone/mission", 
+        std::bind(&FlightControlNode::start_mission, this, std::placeholders::_1, std::placeholders::_2));
+      
+      timer_ = this->create_wall_timer(
+        1000ms, std::bind(&FlightControlNode::timer_callback, this));
+    }
+    
+
+    void start_mission(const std::shared_ptr<Mission::Request> request,
+                          std::shared_ptr<Mission::Response> response)
+    {
+      if (request->drone_code == drone_code_) {
+      
+        behaviour_tree_file_ = request->mission_file;
         
+        if (!is_file_exist(behaviour_tree_file_.c_str())) {
+          RCLCPP_ERROR(this->get_logger(), "Mission file : '%s' not found.", behaviour_tree_file_.c_str());
+          clear_to_fly_ = false;
+        } else {
+          clear_to_fly_ = read_mission_file();       
+        }  
+      } else {
+        clear_to_fly_ = false;
+      }
+      response->accepted = clear_to_fly_;  
+    }                      
+    
+    bool is_file_exist(const char *fileName)
+    {
+      std::ifstream infile(fileName);
+      return infile.good();
+    }
+    
+    bool read_mission_file() {
+      if (!is_file_exist(behaviour_tree_file_.c_str())) {
+        RCLCPP_ERROR(this->get_logger(), "Mission file : '%s' not found.", behaviour_tree_file_.c_str());
+        return false;
+      }
+      RCLCPP_INFO(this->get_logger(), "Reading mission file : '%s'", behaviour_tree_file_.c_str());
+      tree = factory.createTreeFromFile(behaviour_tree_file_);
+      
       auto node_ptr = shared_from_this();                
       // Iterate through all the nodes and call init() if it is an Action_B
+      using namespace DroneNodes;
       for( auto& node: tree.nodes )
       {
         // Not a typo: it is "=", not "=="
@@ -104,29 +153,12 @@ class FlightControlNode : public rclcpp::Node
           save_action->init( node_ptr );
         }
       }
+      
+      return true;
 
-      subscription_ = this->create_subscription<sensor_msgs::msg::BatteryState>(
-      "drone/battery", 5, std::bind(&FlightControlNode::battery_callback, this, std::placeholders::_1));
-      
-      mission_service_ = this->create_service<Mission>("drone/mission", 
-        std::bind(&FlightControlNode::start_mission, this, std::placeholders::_1, std::placeholders::_2));
-      
-      timer_ = this->create_wall_timer(
-        1000ms, std::bind(&FlightControlNode::timer_callback, this));
     }
 
-    void start_mission(const std::shared_ptr<Mission::Request> request,
-                          std::shared_ptr<Mission::Response> response)
-    {
-      if (request->drone_code == drone_code_) {
-        behaviour_tree_file_ = request->mission_file;
-        clear_to_fly_ = true;
-        response->accepted = true;
-      } else {
-        clear_to_fly_ = false;
-        response->accepted = false;
-      }
-    }                      
+    
     
     BT::NodeStatus CheckBattery()
     {      
@@ -146,11 +178,8 @@ class FlightControlNode : public rclcpp::Node
       if( !clear_to_fly_ ) {
         return;
       }
-      
-      if( tree.tickRoot() != NodeStatus::RUNNING) {
-        this->timer_->cancel();  
-        rclcpp::shutdown();
-      }
+  
+      clear_to_fly_ = ( tree.tickRoot() == NodeStatus::RUNNING);  // Stop flight once the tree is done.
     }
     
     BehaviorTreeFactory factory;
