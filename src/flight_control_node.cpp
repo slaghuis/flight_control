@@ -65,7 +65,7 @@ class FlightControlNode : public rclcpp::Node
       behaviour_tree_file_ = this->declare_parameter<std::string>("mission_bt_file", "mission.xml");
       minimum_battery_voltage_ = this->declare_parameter<float>("minimum_battery_voltage", 13.6);
       clear_to_fly_ = ! this->declare_parameter<bool>("use_ground_control", false);
-      drone_code_ = this->declare_parameter<bool>("drone_code", 42);
+      drone_code_ = this->declare_parameter<int>("drone_code", 42);
 
       // Setup the behavior tree
       using namespace DroneNodes;
