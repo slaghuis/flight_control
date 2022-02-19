@@ -17,13 +17,13 @@ Tested: Flight ready
 Calls the Land action server published by the [drone_node](https://github.com/slaghuis/drone_mavsdk), resulting in the drone landing at the current coordinates.
 Tested: Flight ready
 
-####	TargetLandDrone
+###	TargetLandDrone
 Calls the Land action server published by the [lander_node](https://github.com/slaghuis/lander), resulting in the drone landing on a set ArUco marker at the provided coordinates.
 Tested: No
 
 ###	MoveDrone
 Calls the [navigation server](https://github.com/slaghuis/navigation_lite) navigate to pose message to fly the drone avoiding obstacles along the way.
-Tested: Simulator Ready
+Tested: Flight Ready
 
 ###	SaySomething
 Prints a given message to the terminal.  Great for debugging.
@@ -31,12 +31,12 @@ Tested: Flight ready
 
 ###	GenerateFilename
 Reads the current system date and time and generates a file name for use by the camera. The file name will be in the format YYMMDD_HHMM.jpg
-Tested: Simulator ready
+Tested: Flight ready
 
 ###	SavePicture
 Saves the current image published by the [camera node](https://github.com/slaghuis/camera_lite) to camera/image to a file.
 Improvement:  Add a second input to specify the path where the file must be saved.
-Tested: Simulator ready
+Tested: Flight ready
 
 ####	LoadMap
 Calls the simple service of the [map server](https://github.com/slaghuis/navigation_lite) to load a map, replacing the current map im memory.
@@ -61,6 +61,6 @@ colcon build --packages-select flight_control
 ros2 launch flight_control flight.launch.py
 ```
 
-## CAUTION
-This is still a rough first draft.  Lots of testing and building out to be done.
+# Code Status
+This code has flown on a drone!  The drone was controlled by a Pixhawk mini 4.0 controlled via a Raspberry Pi 4 4Gb companion computer via UART.  This node instructed the [navigation_lite](https://github.com/slaghuis/navigation_lite) stack, which in turn used the [drone_mavsdk](https://github.com/slaghuis/drone_mavsdk) node to effect the movement.
 
