@@ -38,7 +38,7 @@ Saves the current image published by the [camera node](https://github.com/slaghu
 Improvement:  Add a second input to specify the path where the file must be saved.
 Tested: Flight ready
 
-####	LoadMap
+###	LoadMap
 Calls the simple service of the [map server](https://github.com/slaghuis/navigation_lite) to load a map, replacing the current map im memory.
 Improvement:  Add a second input to specify the path where the file must) be saved.
 Tested: No
