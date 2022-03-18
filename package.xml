@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>flight_control</name>
-  <version>1.4.0</version>
+  <version>1.5.0</version>
   <description>A Waypoint Follower as envisaged by the Navigation2 Stack, for use against the Navigation Lite stack</description>
   <maintainer email="eslaghuis@gmail.com">Eric Slaghuis</maintainer>
   <license>Apache License 2.0</license>
@@ -20,6 +20,7 @@
   <depend>drone_interfaces</depend>
   <depend>lander_interfaces</depend>
   <depend>camera_lite_interfaces</depend>
+  <depend>coverage_planner_interfaces</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
   <depend>tf2_msgs</depend>

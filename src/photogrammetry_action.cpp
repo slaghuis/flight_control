@@ -14,54 +14,65 @@
 
 // Some reference to https://github.com/ros-planning/navigation2/blob/main/nav2_behavior_tree/include/nav2_behavior_tree/bt_action_node.hpp
 
-#include "flight_control/drone_move_action.h"
+#include "flight_control/photogrammetry_action.h"
 
 namespace DroneNodes
 {
   
-BT::NodeStatus DroneMoveAction::tick()
+BT::NodeStatus PhotogrammetryAction::tick()
 {  
   using namespace std::placeholders;
   
   action_status = ActionStatus::VIRGIN;
-  Pose3D goal;
-  if ( !getInput<Pose3D>("goal", goal))
+  BT::Optional<std::vector<Pose3D>> msg = getInput<std::vector<Pose3D>>("path");
+  // Check if optional is valid. If not, throw its error
+  if (!msg)
   {
-        throw BT::RuntimeError("missing required input [goal]");
+      throw BT::RuntimeError("missing required input [goal]: ", 
+                             msg.error() );
   }
+  RCLCPP_INFO(node_->get_logger(), "ACTION: Received goal request to execute over %d waypoints", msg.value().size());
   
   if (!this->client_ptr_->wait_for_action_server()) {
     RCLCPP_ERROR(node_->get_logger(), "Action server not available after waiting");
     throw BT::RuntimeError("Action server not available. Cannot move the drone.  Failing.");
   }
   
-  RCLCPP_INFO(node_->get_logger(), "ACTION: Navigating to [%.1f, %.1f, %.1f].", goal.x, goal.y, goal.z);
-  
   // Call the action server
-  auto goal_msg = NavigateToPose::Goal();  //navigation_interfaces::action::NavigateToPose::Goal
-  goal_msg.pose.pose.position.x = goal.x; 
-  goal_msg.pose.pose.position.y = goal.y;
-  goal_msg.pose.pose.position.z = goal.z;
+  auto goal_msg = ExecuteAlongPath::Goal();
+  goal_msg.path.header.stamp = node_->now();
+  goal_msg.path.header.frame_id = "map";
   
-  tf2::Quaternion q;
-  q.setRPY(0, 0, goal.theta);
-  goal_msg.pose.pose.orientation.x = q.x();
-  goal_msg.pose.pose.orientation.y = q.y();
-  goal_msg.pose.pose.orientation.z = q.z();
-  goal_msg.pose.pose.orientation.w = q.w();
+  for(size_t i = 0; i < msg.value().size(); i++) {
+    geometry_msgs::msg::Pose pose;
+    pose.position.x = msg.value()[i].x;
+    pose.position.y = msg.value()[i].y;
+    pose.position.z = msg.value()[i].z;
   
+    tf2::Quaternion q;
+    q.setRPY( 0, 0, msg.value()[i].theta );  // Create this quaternion from roll/pitch/yaw (in radians)
+    q.normalize();
+  
+    pose.orientation.x = q[0];
+    pose.orientation.y = q[1];
+    pose.orientation.z = q[2];
+    pose.orientation.w = q[3];
+  
+    goal_msg.path.poses.push_back(pose);
+  }
   node_->get_parameter("navigation_bt_file", goal_msg.behavior_tree);
     
-  auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
+  auto send_goal_options = rclcpp_action::Client<ExecuteAlongPath>::SendGoalOptions();
   send_goal_options.goal_response_callback =
-      std::bind(&DroneMoveAction::goal_response_callback, this, _1);
+      std::bind(&PhotogrammetryAction::goal_response_callback, this, _1);
   send_goal_options.feedback_callback =
-      std::bind(&DroneMoveAction::feedback_callback, this, _1, _2);
+      std::bind(&PhotogrammetryAction::feedback_callback, this, _1, _2);
   send_goal_options.result_callback =
-      std::bind(&DroneMoveAction::result_callback, this, _1);
+      std::bind(&PhotogrammetryAction::result_callback, this, _1);
 
+  RCLCPP_INFO(node_->get_logger(), "PHOTOGRAMMETRY ACTION: Sending goal to execute photgrammetry.  Should happen once.", msg.value().size());
   future_goal_handle_ = std::make_shared<
-      std::shared_future<GoalHandleNavigateToPose::SharedPtr>>(
+      std::shared_future<GoalHandleExecuteAlongPath::SharedPtr>>(
       this->client_ptr_->async_send_goal(goal_msg, send_goal_options));
 
   _halt_requested.store(false);
@@ -71,10 +82,11 @@ BT::NodeStatus DroneMoveAction::tick()
   }  
   
   cleanup();
+  RCLCPP_INFO(node_->get_logger(), "PHOTOGRAMMETRY ACTION: Done executing over %d wayoints.", msg.value().size());
   return (action_status == ActionStatus::SUCCEEDED) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 }
     
-void DroneMoveAction::cleanup() 
+void PhotogrammetryAction::cleanup() 
 {
 
   if( _halt_requested )
@@ -92,7 +104,7 @@ void DroneMoveAction::cleanup()
   }
 } 
   
-void DroneMoveAction::halt() 
+void PhotogrammetryAction::halt() 
 {  
   _halt_requested.store(true); 
   action_status = ActionStatus::CANCELED;
@@ -100,27 +112,27 @@ void DroneMoveAction::halt()
 
   
 ////  ROS2 Action Client Functions ////////////////////////////////////////////
-void DroneMoveAction::goal_response_callback(std::shared_future<GoalHandleNavigateToPose::SharedPtr> future)
+void PhotogrammetryAction::goal_response_callback(std::shared_future<GoalHandleExecuteAlongPath::SharedPtr> future)
   {
     auto goal_handle = future.get();
     if (!goal_handle) {
       RCLCPP_ERROR(node_->get_logger(), "Goal was rejected by server");
       action_status = ActionStatus::REJECTED;
     } else {
-      RCLCPP_DEBUG(node_->get_logger(), "Drone Move Action Goal accepted by server, waiting for result");
+      RCLCPP_DEBUG(node_->get_logger(), "ACTION: Photogrammetry goal accepted by server, waiting for result");
       action_status = ActionStatus::PROCESSING;
     }
   }
 
-  void DroneMoveAction::feedback_callback(
-    GoalHandleNavigateToPose::SharedPtr,
-    const std::shared_ptr<const NavigateToPose::Feedback> feedback)
+  void PhotogrammetryAction::feedback_callback(
+    GoalHandleExecuteAlongPath::SharedPtr,
+    const std::shared_ptr<const ExecuteAlongPath::Feedback> feedback)
   {
 
-    RCLCPP_DEBUG(node_->get_logger(), "Distance remaining %.2f", feedback->distance_remaining);
+    RCLCPP_INFO(node_->get_logger(), "ACTION: Feedback received Current Waypoint %d", feedback->current_waypoint);
   }
 
-  void DroneMoveAction::result_callback(const GoalHandleNavigateToPose::WrappedResult & result)
+  void PhotogrammetryAction::result_callback(const GoalHandleExecuteAlongPath::WrappedResult & result)
   {
     switch (result.code) {
       case rclcpp_action::ResultCode::SUCCEEDED:
@@ -140,7 +152,7 @@ void DroneMoveAction::goal_response_callback(std::shared_future<GoalHandleNaviga
         return;
     }
     
-    RCLCPP_INFO(node_->get_logger(), "Navigation complete");
+    RCLCPP_INFO(node_->get_logger(), "PHOTOGRAMMETRY_ACTION complete");
   }  
   
 }  // namespace

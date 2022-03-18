@@ -3,7 +3,7 @@
 
 namespace DroneNodes
 {
-  enum class ActionStatus {VIRGIN, REJECTED, PROCESSING, SUCCEEDED, ABORTED, CANCELED, UNKNOWN};
+  enum class ActionStatus {VIRGIN, REJECTED, PROCESSING, SUCCEEDED, ABORTED, CANCELED, FAILED, UNKNOWN};
 }  
 
 #endif  // FLIGHT_CONTROL_NODE_H

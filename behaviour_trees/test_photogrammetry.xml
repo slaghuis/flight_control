@@ -1,0 +1,15 @@
+<root>
+     <BehaviorTree>
+        <Sequence>
+            <BatteryOK/>
+            <SaySomething       message="taking to the skies" />
+            <TakeoffDrone       altitude="5.0"/>
+            <SaySomething       message="mission started..." />
+            <CameraModel        spatial_resolution="150" />
+            <CalculateCoverage  area="1.5;5.0|5.0;0.0|16.0;1.0|18.0;25.0|2.0;15.0" height="{height}" projected_width="{p_width}" projected_height="{p_height}" path="{path}" />
+            <Photogrammetry     path="{path}" />
+            <LandDrone          gear_down="true"/>      
+            <SaySomething       message="mission completed!" />
+        </Sequence>
+     </BehaviorTree>
+ </root>

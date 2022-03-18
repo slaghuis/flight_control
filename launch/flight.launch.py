@@ -15,7 +15,7 @@ def generate_launch_description():
             {"drone_code"             : 42}
         ]
     )
-
+    
     ld.add_action(flight_control_node)
 
     return ld

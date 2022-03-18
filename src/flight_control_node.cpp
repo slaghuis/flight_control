@@ -36,6 +36,9 @@
 #include "flight_control/camera_save_action.h"
 #include "flight_control/map_load_action.h"
 #include "flight_control/map_save_action.h"
+#include "flight_control/photogrammetry_action.h"
+#include "flight_control/coverage_action.h"
+#include "flight_control/camera_model_action.h"
 
 #include "navigation_interfaces/srv/mission.hpp"
 
@@ -86,6 +89,10 @@ class FlightControlNode : public rclcpp::Node
       factory.registerNodeType<CameraSaveAction>("SavePicture");
       factory.registerNodeType<MapLoadAction>("LoadMap");
       factory.registerNodeType<MapSaveAction>("SaveMap");
+      factory.registerNodeType<PhotogrammetryAction>("Photogrammetry");
+      factory.registerNodeType<CoverageAction>("CalculateCoverage");
+      factory.registerNodeType<CameraModelAction>("CameraModel");
+      
 
       subscription_ = this->create_subscription<sensor_msgs::msg::BatteryState>(
       "drone/battery", 5, std::bind(&FlightControlNode::battery_callback, this, std::placeholders::_1));
@@ -151,14 +158,18 @@ class FlightControlNode : public rclcpp::Node
           load_action->init( node_ptr );
         } else if( auto save_action = dynamic_cast<MapSaveAction*>( node.get() )) {
           save_action->init( node_ptr );
+        } else if( auto save_action = dynamic_cast<PhotogrammetryAction*>( node.get() )) {
+          save_action->init( node_ptr );
+        } else if( auto save_action = dynamic_cast<CoverageAction*>( node.get() )) {
+          save_action->init( node_ptr );
+        } else if( auto mystery_action = dynamic_cast<CameraModelAction*>( node.get() )) {
+          mystery_action->init( node_ptr );
         }
       }
       
       return true;
-
     }
 
-    
     
     BT::NodeStatus CheckBattery()
     {      
