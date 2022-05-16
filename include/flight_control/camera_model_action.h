@@ -14,7 +14,7 @@
 #include "behaviortree_cpp_v3/behavior_tree.h"
 #include "behaviortree_cpp_v3/bt_factory.h"
 
-#include "coverage_planner_interfaces/srv/camera_model.hpp"
+#include "camera_lite_interfaces/srv/compute_working_distance.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -32,7 +32,7 @@ class CameraModelAction : public BT::AsyncActionNode
     void init(rclcpp::Node::SharedPtr node) {
       node_ = node;
       
-      this->client_ptr_ = node_->create_client<coverage_planner_interfaces::srv::CameraModel>("coverage_planner/camera_model");
+      this->client_ptr_ = node_->create_client<camera_lite_interfaces::srv::ComputeWorkingDistance>("camera_lite/working_distance");
       
     }
     
@@ -52,7 +52,7 @@ class CameraModelAction : public BT::AsyncActionNode
     // Pointer to the ROS node
     rclcpp::Node::SharedPtr node_;
     
-    rclcpp::Client<coverage_planner_interfaces::srv::CameraModel>::SharedPtr client_ptr_;
+    rclcpp::Client<camera_lite_interfaces::srv::ComputeWorkingDistance>::SharedPtr client_ptr_;
 };
      
 } // Namespace

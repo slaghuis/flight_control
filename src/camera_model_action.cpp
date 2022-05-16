@@ -35,7 +35,7 @@ BT::NodeStatus CameraModelAction::tick()
                               msg.error() );
   }
 
-  auto request = std::make_shared<coverage_planner_interfaces::srv::CameraModel::Request>();
+  auto request = std::make_shared<camera_lite_interfaces::srv::ComputeWorkingDistance::Request>();
   request->spatial_resolution = msg.value();
 
   _halt_requested.store(false);
@@ -70,14 +70,14 @@ BT::NodeStatus CameraModelAction::tick()
   if (status == std::future_status::ready)
   {
     auto result = future.get();
-    service_result = (result->max_height > 0.0); 
+    service_result = (result->max_distance > 0.0); 
    
     // Formulate a result
-    setOutput("height", result->max_height);
+    setOutput("height", result->max_distance);
     setOutput("projected_width", result->projected_area_w);
     setOutput("projected_height", result->projected_area_h);
     
-    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Minimum flight height set at %.2f above current datum.", result->max_height );
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Minimum flight height set at %.2f above current datum.", result->max_distance );
   }
 
   return (service_result) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;

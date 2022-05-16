@@ -38,8 +38,6 @@ add_executable(flight_control_node
   src/drone_land_action.cpp
   src/drone_target_land_action.cpp
   src/camera_save_action.cpp
-  src/map_load_action.cpp 
-  src/map_save_action.cpp
   src/photogrammetry_action.cpp
   src/coverage_action
   src/camera_model_action )
